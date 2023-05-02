@@ -15,6 +15,9 @@
 
 #include <arm_neon.h>
 
+#include "maximilian.h"
+#include "libs/maxiPolyBLEP.h"
+
 class Synth {
  public:
   /*===========================================================================*/
@@ -49,6 +52,9 @@ class Synth {
   inline void Reset() {
     // Note: Reset synth state. I.e.: Clear filter memory, reset oscillator
     // phase etc.
+    oscillator_.setWaveform(maxiPolyBLEP::Waveform::SAWTOOTH);
+    gate_ = 0;
+    pitch_ = 261.6f; // C3
   }
 
   inline void Resume() {
@@ -70,8 +76,10 @@ class Synth {
     const float * out_e = out_p + (frames << 1);  // assuming stereo output
 
     for (; out_p != out_e; out_p += 2) {
+      float sig = oscillator_.play(pitch_) * amp_;
+      sig = (gate_ > 0) ? sig : 0.f;
       // Note: should take advantage of NEON ArmV7 instructions
-      vst1_f32(out_p, vdup_n_f32(0.f));
+      vst1_f32(out_p, vdup_n_f32(sig));
     }
   }
 
@@ -118,17 +126,25 @@ class Synth {
   }
 
   inline void NoteOn(uint8_t note, uint8_t velocity) {
-    (void)note;
-    (void)velocity;
+    pitch_ = mtof_.mtof(note);
+    GateOn(velocity);
   }
 
-  inline void NoteOff(uint8_t note) { (void)note; }
+  inline void NoteOff(uint8_t note) {
+    (void)note;
+    GateOff();
+  }
 
   inline void GateOn(uint8_t velocity) {
-    (void)velocity;
+    amp_ = 1. / 127 * velocity;
+    gate_ += 1;
   }
 
-  inline void GateOff() {}
+  inline void GateOff() {
+    if (gate_ > 0 ) {
+      gate_ -= 1;
+    }
+  }
 
   inline void AllNoteOff() {}
 
@@ -163,6 +179,13 @@ class Synth {
   /*===========================================================================*/
 
   std::atomic_uint_fast32_t flags_;
+
+  convert mtof_;
+  maxiPolyBLEP oscillator_;
+
+  float pitch_;
+  float amp_;
+  uint32_t gate_;
 
   /*===========================================================================*/
   /* Private Methods. */

@@ -2,7 +2,7 @@
 # Project Configuration
 #
 
-PROJECT := dummy_synth
+PROJECT := maxisynth
 PROJECT_TYPE := synth
 
 ##############################################################################
@@ -13,7 +13,7 @@ PROJECT_TYPE := synth
 CSRC = header.c
 
 # C++ sources
-CXXSRC = unit.cc
+CXXSRC = unit.cc ../Maximilian/src/maximilian.cpp ../Maximilian/src/libs/PolyBLEP/PolyBLEP.cpp
 
 # List ASM source files here
 ASMSRC = 
@@ -24,7 +24,7 @@ ASMXSRC =
 # Include Paths
 #
 
-UINCDIR  = 
+UINCDIR  = ../Maximilian/src
 
 ##############################################################################
 # Library Paths
