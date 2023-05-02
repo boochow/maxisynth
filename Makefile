@@ -226,6 +226,8 @@ endif
 # Source files groups and paths
 SRC       := $(CSRC) $(CXXSRC)
 SRCPATHS  := $(sort $(dir $(ASMXSRC)) $(dir $(ASMSRC)) $(dir $(SRC)))
+CXXCCSRC  := $(filter %.cc, $(CXXSRC))
+CXXCPPSRC := $(filter %.cpp, $(CXXSRC))
 
 # Various directories
 OBJDIR    := $(BUILDDIR)/obj
@@ -234,10 +236,11 @@ DEPDIR    := .dep
 
 # Object files groups
 COBJS     := $(addprefix $(OBJDIR)/, $(notdir $(CSRC:.c=.o)))
-CXXOBJS   := $(addprefix $(OBJDIR)/, $(notdir $(CXXSRC:.cc=.o)))
+CXXCCOBJS := $(addprefix $(OBJDIR)/, $(notdir $(CXXCCSRC:.cc=.o)))
+CXXCPPOBJS:= $(addprefix $(OBJDIR)/, $(notdir $(CXXCPPSRC:.cpp=.o)))
 ASMOBJS   := $(addprefix $(OBJDIR)/, $(notdir $(ASMSRC:.s=.o)))
 ASMXOBJS  := $(addprefix $(OBJDIR)/, $(notdir $(ASMXSRC:.S=.o)))
-OBJS	  := $(ASMXOBJS) $(ASMOBJS) $(COBJS) $(CXXOBJS)
+OBJS	  := $(ASMXOBJS) $(ASMOBJS) $(COBJS) $(CXXCCOBJS) $(CXXCPPOBJS)
 
 # dependency files
 DEPS      := $(addprefix $(DEPDIR)/, $(notdir $(OBJS:%.o=%.o.d)))
@@ -311,7 +314,16 @@ $(OBJDIR):
 $(LSTDIR):
 	@mkdir -p $(LSTDIR)
 
-$(CXXOBJS) : $(OBJDIR)/%.o : %.cc Makefile
+$(CXXCCOBJS) : $(OBJDIR)/%.o : %.cc Makefile
+ifeq ($(VERBOSE_COMPILE),yes)
+	@echo
+	$(CXXC) -c $(CXXFLAGS) $(AOPT) -I. $(IINCDIR) $< -o $@
+else
+	@echo Compiling $(<F)
+	@$(CXXC) -c $(CXXFLAGS) $(AOPT) -I. $(IINCDIR) $< -o $@
+endif
+
+$(CXXCPPOBJS) : $(OBJDIR)/%.o : %.cpp Makefile
 ifeq ($(VERBOSE_COMPILE),yes)
 	@echo
 	$(CXXC) -c $(CXXFLAGS) $(AOPT) -I. $(IINCDIR) $< -o $@
