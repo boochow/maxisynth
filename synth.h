@@ -40,6 +40,8 @@ class Synth {
     if (desc->output_channels != 2)  // should be stereo output
       return k_unit_err_geometry;
 
+    maxiSettings::sampleRate = 48000;
+    oscillator_.setSampleRate(48000);
     // Note: if need to allocate some memory can do it here and return k_unit_err_memory if getting allocation errors
 
     return k_unit_err_none;
