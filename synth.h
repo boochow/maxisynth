@@ -18,6 +18,10 @@
 #include "maximilian.h"
 #include "libs/maxiPolyBLEP.h"
 
+enum Params {
+    Note = 0,
+};
+
 class Synth {
  public:
   /*===========================================================================*/
@@ -56,7 +60,6 @@ class Synth {
     // phase etc.
     oscillator_.setWaveform(maxiPolyBLEP::Waveform::SAWTOOTH);
     gate_ = 0;
-    pitch_ = 261.6f; // C3
   }
 
   inline void Resume() {
@@ -86,19 +89,18 @@ class Synth {
   }
 
   inline void setParameter(uint8_t index, int32_t value) {
-    (void)value;
+    p_[index] = value;
     switch (index) {
-      default:
-        break;
+    case Note:
+      pitch_ = mtof_.mtof(value);
+      break;
+    default:
+      break;
     }
   }
 
   inline int32_t getParameterValue(uint8_t index) const {
-    switch (index) {
-      default:
-        break;
-    }
-    return 0;
+    return p_[index];
   }
 
   inline const char * getParameterStrValue(uint8_t index, int32_t value) const {
@@ -182,6 +184,7 @@ class Synth {
 
   std::atomic_uint_fast32_t flags_;
 
+  int32_t p_[24];
   convert mtof_;
   maxiPolyBLEP oscillator_;
 

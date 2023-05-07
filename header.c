@@ -19,14 +19,14 @@ const __unit_header unit_header_t unit_header = {
     .version = 0x00010000U,                                // This unit's version: major.minor.patch (major<<16 minor<<8 patch).
     .name = "maxisynth",                                       // Name for this unit, will be displayed on device
     .num_presets = 0,                                      // Number of internal presets this unit has
-    .num_params = 0,                                       // Number of parameters for this unit, max 24
+    .num_params = 1,                                       // Number of parameters for this unit, max 24
     .params = {
         // Format: min, max, center, default, type, fractional, frac. type, <reserved>, name
 
         // See common/runtime.h for type enum and unit_param_t structure
 
         // Page 1
-        {0, 0, 0, 0, k_unit_param_type_none, 0, 0, 0, {""}},
+        {0, 127, 60, 60, k_unit_param_type_midi_note, 0, 0, 0, {"Note"}},
         {0, 0, 0, 0, k_unit_param_type_none, 0, 0, 0, {""}},
         {0, 0, 0, 0, k_unit_param_type_none, 0, 0, 0, {""}},
         {0, 0, 0, 0, k_unit_param_type_none, 0, 0, 0, {""}},
