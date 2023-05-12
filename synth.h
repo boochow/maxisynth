@@ -21,6 +21,9 @@
 #include "maximilian.h"
 #include "libs/maxiPolyBLEP.h"
 
+// Uncomment this line to use maxiEnvGen class
+//#define USE_MAXIENVGEN
+
 enum Params {
     Note = 0,
     Waveform,
@@ -56,10 +59,12 @@ class Synth {
 
     maxiSettings::sampleRate = 48000;
     oscillator_.setSampleRate(48000);
+#ifdef USE_MAXIENVGEN
     envelope_.setup({0, 1, 1, 1, 0, 0},
                     {1, 1, maxiEnvGen::HOLD, 1, 1},
                     {1, 1, 1, 1, 1},
                     false, true);
+#endif
     // Note: if need to allocate some memory can do it here and return k_unit_err_memory if getting allocation errors
 
     return k_unit_err_none;
@@ -94,9 +99,15 @@ class Synth {
     float * __restrict out_p = out;
     const float * out_e = out_p + (frames << 1);  // assuming stereo output
 
+#ifdef USE_MAXIENVGEN
     const float trigger = gate_ ? 1.0 : -1.0;
+#endif
     for (; out_p != out_e; out_p += 2) {
+#ifdef USE_MAXIENVGEN
       float env = envelope_.play(trigger);
+#else
+      float env = envelope_.adsr(1.0, (gate_ > 0));
+#endif
       float sig = oscillator_.play(pitch_) * amp_;
       float cutoff = min(23999., pitch_ + mtof_.mtof(0.1 * p_[Cutoff]));
       // Low pass filter
@@ -129,6 +140,7 @@ class Synth {
     case Resonance:
       resonance_ = powf(2, 1.f / (1<<5) * value);
       break;
+#ifdef USE_MAXIENVGEN
     case Attack:
       envelope_.setTime(0, value + 1);
       break;
@@ -142,6 +154,20 @@ class Synth {
     case Release:
       envelope_.setTime(3, value + 1);
       break;
+#else
+    case Attack:
+      envelope_.setAttack(value + 1);
+      break;
+    case Decay:
+      envelope_.setDecay(value + 1);
+      break;
+    case Sustain:
+      envelope_.setSustain(0.01 * value);
+      break;
+    case Release:
+      envelope_.setRelease(value + 1);
+      break;
+#endif
     default:
       break;
     }
@@ -190,18 +216,19 @@ class Synth {
   inline void GateOn(uint8_t velocity) {
     amp_ = 1. / 127 * velocity;
     gate_ += 1;
-//    envelope_.reset();
   }
 
   inline void GateOff() {
     if (gate_ > 0 ) {
       gate_ -= 1;
     }
+#ifdef USE_MAXIENVGEN
     if (gate_ == 0) {
       if (envelope_.getPhase() < 2) {
         envelope_.setPhase(3); // release phase
       }
     }
+#endif
   }
 
   inline void AllNoteOff() {}
@@ -242,7 +269,11 @@ class Synth {
   convert mtof_;
   maxiPolyBLEP oscillator_;
   maxiBiquad filter_;
+#ifdef USE_MAXIENVGEN
   maxiEnvGen envelope_;
+#else
+  maxiEnv envelope_;
+#endif
 
   float pitch_;
   float amp_;
