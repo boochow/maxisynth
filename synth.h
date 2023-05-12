@@ -12,6 +12,7 @@
 #include <atomic>
 #include <cstddef>
 #include <cstdint>
+#include <algorithm>
 
 #include <arm_neon.h>
 
@@ -22,6 +23,13 @@
 
 enum Params {
     Note = 0,
+    Waveform,
+    Cutoff,
+    Resonance,
+    Attack,
+    Decay,
+    Sustain,
+    Release
 };
 
 class Synth {
@@ -48,6 +56,10 @@ class Synth {
 
     maxiSettings::sampleRate = 48000;
     oscillator_.setSampleRate(48000);
+    envelope_.setup({0, 1, 1, 1, 0, 0},
+                    {1, 1, maxiEnvGen::HOLD, 1, 1},
+                    {1, 1, 1, 1, 1},
+                    false, true);
     // Note: if need to allocate some memory can do it here and return k_unit_err_memory if getting allocation errors
 
     return k_unit_err_none;
@@ -82,9 +94,16 @@ class Synth {
     float * __restrict out_p = out;
     const float * out_e = out_p + (frames << 1);  // assuming stereo output
 
+    const float trigger = gate_ ? 1.0 : -1.0;
     for (; out_p != out_e; out_p += 2) {
+      float env = envelope_.play(trigger);
       float sig = oscillator_.play(pitch_) * amp_;
-      sig = (gate_ > 0) ? sig : 0.f;
+      float cutoff = min(23999., pitch_ + mtof_.mtof(0.1 * p_[Cutoff]));
+      // Low pass filter
+      filter_.set(maxiBiquad::LOWPASS, cutoff, resonance_, 2.);
+      sig = filter_.play(sig * amp_);
+      // Amp envelope
+      sig = sig * env;
       // Note: should take advantage of NEON ArmV7 instructions
       vst1_f32(out_p, vdup_n_f32(sig));
     }
@@ -95,6 +114,33 @@ class Synth {
     switch (index) {
     case Note:
       pitch_ = mtof_.mtof(value);
+      break;
+    case Waveform:
+      if (value == 2) {
+        oscillator_.setWaveform(maxiPolyBLEP::Waveform::TRIANGLE);
+      } else if (value == 1) {
+        oscillator_.setWaveform(maxiPolyBLEP::Waveform::RECTANGLE);
+      } else {
+        oscillator_.setWaveform(maxiPolyBLEP::Waveform::SAWTOOTH);
+      }
+      break;
+    case Cutoff:
+      break;
+    case Resonance:
+      resonance_ = powf(2, 1.f / (1<<5) * value);
+      break;
+    case Attack:
+      envelope_.setTime(0, value + 1);
+      break;
+    case Decay:
+      envelope_.setTime(1, value + 1);
+      break;
+    case Sustain:
+      envelope_.setLevel(2, 0.01 * value);
+      envelope_.setLevel(3, 0.01 * value);
+      break;
+    case Release:
+      envelope_.setTime(3, value + 1);
       break;
     default:
       break;
@@ -144,11 +190,17 @@ class Synth {
   inline void GateOn(uint8_t velocity) {
     amp_ = 1. / 127 * velocity;
     gate_ += 1;
+//    envelope_.reset();
   }
 
   inline void GateOff() {
     if (gate_ > 0 ) {
       gate_ -= 1;
+    }
+    if (gate_ == 0) {
+      if (envelope_.getPhase() < 2) {
+        envelope_.setPhase(3); // release phase
+      }
     }
   }
 
@@ -189,10 +241,13 @@ class Synth {
   int32_t p_[24];
   convert mtof_;
   maxiPolyBLEP oscillator_;
+  maxiBiquad filter_;
+  maxiEnvGen envelope_;
 
   float pitch_;
   float amp_;
   uint32_t gate_;
+  float resonance_;
 
   /*===========================================================================*/
   /* Private Methods. */
