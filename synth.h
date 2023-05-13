@@ -2,10 +2,7 @@
 /*
  *  File: synth.h
  *
- *  Dummy Synth Class.
- *
- *
- *  2021-2022 (c) Korg
+ *  Simple Synth using Maximilian
  *
  */
 
@@ -24,6 +21,11 @@
 // Uncomment this line to use maxiEnvGen class
 //#define USE_MAXIENVGEN
 
+// Use this instead of mtof() in maxmilian to allow note number in float
+inline double note2freq(float note) {
+    return (440.f / 32) * powf(2, (note - 9.0) / 12);
+}
+
 enum Params {
     Note = 0,
     Waveform,
@@ -32,7 +34,11 @@ enum Params {
     Attack,
     Decay,
     Sustain,
-    Release
+    Release,
+    EnvAmpInt,
+    EnvPitchInt,
+    EnvCutoffInt,
+    EnvPWMInt
 };
 
 class Synth {
@@ -101,20 +107,28 @@ class Synth {
 
 #ifdef USE_MAXIENVGEN
     const float trigger = gate_ ? 1.0 : -1.0;
+#else
+    const int trigger = (gate_ > 0);
 #endif
+
     for (; out_p != out_e; out_p += 2) {
+      // Envelope
 #ifdef USE_MAXIENVGEN
       float env = envelope_.play(trigger);
 #else
-      float env = envelope_.adsr(1.0, (gate_ > 0));
+      float env = envelope_.adsr(1.0, trigger);
 #endif
-      float sig = oscillator_.play(pitch_) * amp_;
-      float cutoff = min(23999., pitch_ + mtof_.mtof(0.1 * p_[Cutoff]));
-      // Low pass filter
+      // Oscillator
+      float pitch = note2freq(note_ + egPitch_ * env);
+      oscillator_.setPulseWidth(0.5f + egPwm_ * env);
+      float sig = oscillator_.play(pitch);
+      // Filter
+      double cutoff_note = note_ + cutoffOffset_ + egCutoff_ * env;
+      float cutoff = min(23999., note2freq(max(0., cutoff_note)));
       filter_.set(maxiBiquad::LOWPASS, cutoff, resonance_, 2.);
       sig = filter_.play(sig * amp_);
-      // Amp envelope
-      sig = sig * env;
+      // Amplifier
+      sig = sig * (egAmp_ * env + egAmpRev_ * trigger);
       // Note: should take advantage of NEON ArmV7 instructions
       vst1_f32(out_p, vdup_n_f32(sig));
     }
@@ -124,7 +138,7 @@ class Synth {
     p_[index] = value;
     switch (index) {
     case Note:
-      pitch_ = mtof_.mtof(value);
+      note_ = value;
       break;
     case Waveform:
       if (value == 2) {
@@ -136,9 +150,10 @@ class Synth {
       }
       break;
     case Cutoff:
+      cutoffOffset_ = 0.1 * value - 63.5; // -63.5 .. +63.5
       break;
     case Resonance:
-      resonance_ = powf(2, 1.f / (1<<5) * value);
+      resonance_ = powf(2, 1.f / (1<<5) * value); // 2^(-4) .. 2^4
       break;
 #ifdef USE_MAXIENVGEN
     case Attack:
@@ -156,7 +171,7 @@ class Synth {
       break;
 #else
     case Attack:
-      envelope_.setAttack(value + 1);
+      envelope_.setAttackMS(value + 1);
       break;
     case Decay:
       envelope_.setDecay(value + 1);
@@ -168,6 +183,19 @@ class Synth {
       envelope_.setRelease(value + 1);
       break;
 #endif
+    case EnvAmpInt:
+      egAmp_ = 0.01f * value;
+      egAmpRev_ = 1.f - egAmp_;
+      break;
+    case EnvPitchInt:
+      egPitch_ = 0.24f * value; // 24 semitones / 100%
+      break;
+    case EnvCutoffInt:
+      egCutoff_ = 0.6 * value;  // 60 semitones / 100%
+      break;
+    case EnvPWMInt:
+      egPwm_ = 0.0049 * value;  // 0.49 / 100%
+      break;
     default:
       break;
     }
@@ -204,7 +232,7 @@ class Synth {
   }
 
   inline void NoteOn(uint8_t note, uint8_t velocity) {
-    pitch_ = mtof_.mtof(note);
+    note_ = note;
     GateOn(velocity);
   }
 
@@ -224,8 +252,8 @@ class Synth {
     }
 #ifdef USE_MAXIENVGEN
     if (gate_ == 0) {
-      if (envelope_.getPhase() < 2) {
-        envelope_.setPhase(3); // release phase
+      if (envelope_.getPhase() < 2) { // gate is off in the attack/decay phase
+        envelope_.setPhase(3);        // then jump to the release phase
       }
     }
 #endif
@@ -266,7 +294,6 @@ class Synth {
   std::atomic_uint_fast32_t flags_;
 
   int32_t p_[24];
-  convert mtof_;
   maxiPolyBLEP oscillator_;
   maxiBiquad filter_;
 #ifdef USE_MAXIENVGEN
@@ -275,11 +302,17 @@ class Synth {
   maxiEnv envelope_;
 #endif
 
-  float pitch_;
+  int32_t note_;
   float amp_;
   uint32_t gate_;
+  float cutoffOffset_;
   float resonance_;
 
+  float egAmp_;
+  float egAmpRev_;
+  float egPitch_;
+  float egCutoff_;
+  float egPwm_;
   /*===========================================================================*/
   /* Private Methods. */
   /*===========================================================================*/

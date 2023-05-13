@@ -17,9 +17,9 @@ const __unit_header unit_header_t unit_header = {
     .dev_id = 0x0U,                                        // developer identifier
     .unit_id = 0x0U,                                       // Id for this unit, should be unique within the scope of a given dev_id
     .version = 0x00010000U,                                // This unit's version: major.minor.patch (major<<16 minor<<8 patch).
-    .name = "maxisynth",                                       // Name for this unit, will be displayed on device
+    .name = "maxisynth",                                   // Name for this unit, will be displayed on device
     .num_presets = 0,                                      // Number of internal presets this unit has
-    .num_params = 8,                                       // Number of parameters for this unit, max 24
+    .num_params = 12,                                      // Number of parameters for this unit, max 24
     .params = {
         // Format: min, max, center, default, type, fractional, frac. type, <reserved>, name
 
@@ -38,10 +38,10 @@ const __unit_header unit_header_t unit_header = {
         {0, 1000, 0, 0, k_unit_param_type_msec, 0, 0, 0, {"Release"}},
 
         // Page 3
-        {0, 0, 0, 0, k_unit_param_type_none, 0, 0, 0, {""}},
-        {0, 0, 0, 0, k_unit_param_type_none, 0, 0, 0, {""}},
-        {0, 0, 0, 0, k_unit_param_type_none, 0, 0, 0, {""}},
-        {0, 0, 0, 0, k_unit_param_type_none, 0, 0, 0, {""}},
+        {0, 100, 0, 100, k_unit_param_type_percent, 0, 0, 0, {"EG >AMP"}},
+        {-100, 100, 0, 0, k_unit_param_type_percent, 0, 0, 0, {">Pitch"}},
+        {-100, 100, 0, 0, k_unit_param_type_percent, 0, 0, 0, {">Cutoff"}},
+        {0, 100, 0, 0, k_unit_param_type_percent, 0, 0, 0, {">PWM"}},
 
         // Page 4
         {0, 0, 0, 0, k_unit_param_type_none, 0, 0, 0, {""}},
