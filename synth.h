@@ -19,7 +19,7 @@
 #include "libs/maxiPolyBLEP.h"
 
 // Uncomment this line to use maxiEnvGen class
-//#define USE_MAXIENVGEN
+// #define USE_MAXIENVGEN
 
 // Use this instead of mtof() in maxmilian to allow note number in float
 inline double note2freq(float note) {
@@ -250,13 +250,6 @@ class Synth {
     if (gate_ > 0 ) {
       gate_ -= 1;
     }
-#ifdef USE_MAXIENVGEN
-    if (gate_ == 0) {
-      if (envelope_.getPhase() < 2) { // gate is off in the attack/decay phase
-        envelope_.setPhase(3);        // then jump to the release phase
-      }
-    }
-#endif
   }
 
   inline void AllNoteOff() {}
